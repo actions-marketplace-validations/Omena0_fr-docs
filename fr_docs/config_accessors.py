@@ -151,7 +151,14 @@ def src_dir(config):
 
 
 def out_dir(config):
-    return config.get("_out_dir", "site")
+    """Return the output directory name relative to docs_dir.
+
+    Respects ``build.out_dir`` first, then the top-level ``out_dir``
+    key, falling back to ``site``.
+    """
+    build = config.get("build", {}) if isinstance(config.get("build"), dict) else {}
+    raw = build.get("out_dir") or config.get("out_dir") or "site"
+    return str(raw)
 
 
 def docs_dir(config):
@@ -196,6 +203,6 @@ def project_url(config):
     return config.get("project_url", "")
 
 
-def src_map_path(config):
+def src_map_path(config) -> str:
     """Return the source markdown path pattern used in git metadata."""
     return f"{src_dir(config)}/{{slug}}.md"

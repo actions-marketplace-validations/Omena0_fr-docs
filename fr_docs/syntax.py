@@ -61,7 +61,7 @@ def _highlight_fragment(code, language):
 def _protect_html_links(code):
     links = []
 
-    def replace(match):
+    def replace(match) -> str:
         links.append(match.group(0))
         return f"___FRDOC_LINK_{len(links) - 1}___"
 
@@ -78,7 +78,7 @@ def highlight_code_blocks(html_text):
     """Apply fastpylight highlighting to fenced code blocks."""
     for_match = PRE_CODE_RE.pattern
 
-    def replace_block(match):
+    def replace_block(match) -> str:
         language = match.group(1) or ""
         inner = match.group(2)
         protected, links = _protect_html_links(inner)
@@ -143,13 +143,13 @@ def process_blockquotes(html_text):
                 f'<div class="callout callout-{callout_type}">'
                 f'  <span class="callout-icon" aria-hidden="true">'
                 f'    <svg viewBox="0 0 24 24">'
-                f'      {CALLOUT_ICONS[callout_type]}'
-                f'    </svg>'
-                f'  </span>'
+                f"      {CALLOUT_ICONS[callout_type]}"
+                f"    </svg>"
+                f"  </span>"
                 f'  <div class="callout-content">'
-                f'    {body}'
-                f'  </div>'
-                f'</div>'
+                f"    {body}"
+                f"  </div>"
+                f"</div>"
             )
         return "".join(callouts)
 
@@ -171,8 +171,6 @@ def format_custom_tags(html_text, config=None):
     from .config_accessors import custom_tags
 
     tags = custom_tags(config)
-    if not tags:
-        return html_text
 
     def _repl(m):
         tag = m.group(1)
@@ -183,5 +181,10 @@ def format_custom_tags(html_text, config=None):
         display = spec.get("display", tag)
         return f'<span class="{cls}">{display}</span>'
 
-    pattern = re.compile(r"\[(" + "|".join(re.escape(t) for t in tags) + r")\]")
-    return pattern.sub(_repl, html_text)
+    return (
+        html_text
+        if not tags
+        else re.compile(r"\[(" + "|".join(re.escape(t) for t in tags) + r")\]").sub(
+            _repl, html_text
+        )
+    )

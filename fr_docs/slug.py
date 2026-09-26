@@ -40,7 +40,7 @@ def build_slug_page_keys(slugs):
         for norm in entries:
             if not has_collision:
                 base_key = slug_basename(norm)
-            elif base == "index" and norm == "index":
+            elif base == "index" == norm:
                 base_key = "index"
             else:
                 base_key = norm.replace("/", "__")
@@ -63,7 +63,7 @@ def slug_page_key(slug, config):
     return config.get("_slug_page_keys", {}).get(norm, slug_basename(norm))
 
 
-def slug_output_name(slug, config=None):
+def slug_output_name(slug, config=None) -> str:
     """Return output HTML filename for a slug."""
     if config is None:
         return f"{slug}.html"
