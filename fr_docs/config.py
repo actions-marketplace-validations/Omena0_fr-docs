@@ -5,12 +5,19 @@ import json
 from pathlib import Path
 
 DEFAULT_CONFIG = {
+    "$schema": "https://raw.githubusercontent.com/Omena0/fr-docs/main/config.schema.json",
     "project_name": "Project Name",
+    "copyright_holder": "CHANGE_ME",
     "project_url": "",
     "site_path_prefix": "/",
     "src_dir": "src",
     "out_dir": "site",
     "docs_dir": ".",
+    "source_files": {
+        "search_dirs": ["parent", "src_parent", "docs"],
+        "patterns": ["docs/src/*.md", "docs/*.js", "docs/*.css"],
+        "ignore_dirs": [],
+    },
     "sidebar": [],
     "build": {
         "workers": 18,
@@ -18,11 +25,24 @@ DEFAULT_CONFIG = {
         "optimize_html": True,
         "zstd_level": 22,
         "search_index_filename": "search_index.zst",
-        "git_meta_filename": "git_meta.json",
+        "git_meta_filename": "git_meta.zst",
     },
     "versioning": {
         "commit_message_pattern": r"^\s*([0-9]+[A-Za-z])\s*[-:—–]\s*(.+)",
         "live_label": "Live",
+    },
+    "features": {
+        "backlinks": True,
+        "related": True,
+        "auto_link": True,
+        "versioning": True,
+        "search": True,
+        "code_references": True,
+        "link_preview": True,
+        "code_highlighting": True,
+        "blockquotes": True,
+        "ext_tags": True,
+        "inline_copy": True,
     },
 }
 
@@ -49,10 +69,12 @@ def load_config(config_path=None):
         config_path = Path(config_path)
 
     config = DEFAULT_CONFIG
+    project_name_specified = False
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
             loaded = json.load(f)
         config = _merge(DEFAULT_CONFIG, loaded)
+        project_name_specified = "project_name" in loaded
 
     config_path = config_path.resolve()
     docs_dir = (
@@ -61,6 +83,7 @@ def load_config(config_path=None):
     src_dir = docs_dir / config["src_dir"] if config["src_dir"] else docs_dir / "src"
     out_dir = docs_dir / config["out_dir"] if config["out_dir"] else docs_dir / "site"
 
+    config["_project_name_specified"] = project_name_specified
     config["_config_path"] = str(config_path)
     config["_docs_dir"] = str(docs_dir)
     config["_src_dir"] = str(src_dir)

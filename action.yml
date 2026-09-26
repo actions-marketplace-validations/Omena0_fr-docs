@@ -20,9 +20,8 @@ inputs:
     required: false
     default: 'package-lock.json'
   node-tools:
-    description: 'Space-separated npm packages to install for the build'
-    required: false
-    default: 'html-minifier-next@8.5.3 critical@9.0.0'
+      description: 'Space-separated npm packages to install for the build'
+      default: 'html-minifier-next@8.5.3 critical@9.0.0 terser@5.24.0'
   docs-dir:
     description: 'Directory containing fr-docs config.json and src/'
     required: false
@@ -48,7 +47,20 @@ runs:
         cache-dependency-path: ${{ inputs.lockfile-path }}
     - name: Install Node.js tools
       shell: bash
-      run: npm install --no-audit --no-fund --no-save ${{ inputs.node-tools }}
+      env:
+        NODE_TOOLS: ${{ inputs.node-tools }}
+      run: |
+        set -euo pipefail
+        read -r -a tools <<< "$NODE_TOOLS"
+
+        for tool in "${tools[@]}"; do
+          if [[ ! "$tool" =~ ^[A-Za-z0-9@._/\-]+$ ]]; then
+            echo "Invalid package specifier: $tool" >&2
+            exit 1
+          fi
+        done
+
+        npm install --no-audit --no-fund --no-save "${tools[@]}"
     - name: Install fr-docs
       shell: bash
       run: pip install -e .

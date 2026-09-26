@@ -1,5 +1,6 @@
 """HTML template for documentation pages."""
 
+from .config_accessors import feature_enabled
 from .slug import slug_basename, slug_output_name
 
 TEMPLATE = """\
@@ -17,16 +18,14 @@ TEMPLATE = """\
   <meta name="theme-color" content="#6366f1">
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="{site_prefix}favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{site_prefix}style.css">
+  <link rel="stylesheet" href="{site_prefix}fonts.css" media="print" onload="this.media='all'">
 </head>
 <body>
   <!-- Header -->
   <header class="site-header">
     <button class="menu-toggle" aria-label="Toggle menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" aria-hidden="true">
         <path d="M3 12h18M3 6h18M3 18h18"/>
       </svg>
     </button>
@@ -35,16 +34,10 @@ TEMPLATE = """\
           <span class="logo">{logo_text}</span>
           {project_name}
       </a>
-      <div class="version-selector-wrap">
-          <select id="version-selector" class="version-selector" aria-label="Select version">
-              {version_options}
-          </select>
-      </div>
+      {version_selector_html}
     </div>
     <div class="header-search">
-      <svg class="header-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" id="header-search" placeholder="Search docs… (Ctrl+K)" autocomplete="off">
-      <div id="search-results" class="search-results"></div>
+      {header_search_html}
     </div>
     <nav class="header-nav">
       <a href="index.html">Docs</a>
@@ -70,38 +63,53 @@ TEMPLATE = """\
   </main>
 
   <!-- Back to top -->
-  <button class="back-to-top" aria-label="Back to top">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <path d="M18 15l-6-6-6 6"/>
-    </svg>
-  </button>
+<button class="back-to-top" aria-label="Back to top">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+        <path d="M18 15l-6-6-6 6"/>
+      </svg>
+    </button>
 
     {search_index_inline}
+    <script id="code-refs-data" type="application/json">{code_refs_json}</script>
+    <script id="search-config" type="application/json">{search_config_json}</script>
     <script src="{site_prefix}script.js" defer></script>
 </body>
 </html>
 """
 
 
-def build_sidebar_html(current_slug, sidebar_config, ext_sections=None):
+def build_sidebar_html(current_slug, sidebar_config, ext_sections=None, config=None):
     """Generate the sidebar HTML from the config sidebar definition."""
     if ext_sections is None:
         ext_sections = {"Extensions"}
 
-    parts = [
-        '<div class="search-box">',
-        '  <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
-        '  <input type="text" id="sidebar-search" placeholder="Search docs…">',
-        "</div>",
-    ]
+    parts = []
+    if config and feature_enabled(config, "search"):
+        parts.extend(
+            [
+                '<div class="search-box">',
+                '  <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+                '  <input type="text" id="sidebar-search" placeholder="Search docs…">',
+                "</div>",
+            ]
+        )
 
     for section_name, pages in sidebar_config:
         key = _section_key(section_name)
         is_ext = section_name in ext_sections
+
+        # Auto-expand the section that contains the current page, and
+        # any section with only one page (so users can see its contents
+        # without clicking). If there's only one section total, expand
+        # it regardless.
+        contains_current = any(slug == current_slug for slug, _ in pages)
+        only_section = len(sidebar_config) == 1
+        collapsed = not (contains_current or only_section or len(pages) <= 1)
+
         parts.extend(
             (
                 '<div class="sidebar-section">',
-                f'  <div class="sidebar-heading collapsed" data-section="{key}">{section_name}</div>',
+                f'  <div class="sidebar-heading{" collapsed" if collapsed else ""}" data-section="{key}">{section_name}</div>',
                 '  <ul class="sidebar-links">',
             )
         )
@@ -116,9 +124,11 @@ def build_sidebar_html(current_slug, sidebar_config, ext_sections=None):
     return "\n".join(parts)
 
 
-def build_toc_sidebar(toc_tokens, current_slug, sidebar_config, ext_sections=None):
+def build_toc_sidebar(
+    toc_tokens, current_slug, sidebar_config, ext_sections=None, config=None
+):
     """Build the sidebar with 'On This Page' TOC at the top, then nav sections."""
-    nav = build_sidebar_html(current_slug, sidebar_config, ext_sections)
+    nav = build_sidebar_html(current_slug, sidebar_config, ext_sections, config)
     if not toc_tokens:
         return nav
 
@@ -129,8 +139,7 @@ def build_toc_sidebar(toc_tokens, current_slug, sidebar_config, ext_sections=Non
     ]
     for token in toc_tokens:
         toc_parts.append(f'    <li><a href="#{token["id"]}">{token["name"]}</a></li>')
-        children = token.get("children", [])
-        if children:
+        if children := token.get("children", []):
             toc_parts.append(
                 f'    <li><ul class="toc-sub" data-parent="{token["id"]}">'
             )

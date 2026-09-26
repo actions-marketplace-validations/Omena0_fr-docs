@@ -1,41 +1,61 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Omena0/fr-docs/main/config.schema.json",
   "project_name": "Fr-docs",
   "project_url": "https://github.com/Omena0/fr-docs",
+  "copyright_holder": "Omena0",
   "docs_dir": ".",
   "site_path_prefix": "/fr-docs",
   "sidebar": [
-    ["Introduction", [
-      ["getting_started/index", "Home"],
-      ["getting_started/installation", "Installation"],
-      ["getting_started/quickstart", "Quickstart"],
-      ["getting_started/configuration", "Configuration"]
-    ]],
-    ["Usage", [
-      ["usage/build", "Build"],
-      ["usage/deploy", "Deploy"],
-      ["usage/search", "Search"],
-      ["usage/versioning", "Versioning"]
-    ]],
-    ["Reference", [
-      ["reference/config_format", "Config Format"],
-      ["reference/version_format", "Version Format"],
-      ["reference/api", "API"]
-    ]],
-    ["Internals", [
-      ["internals/architecture", "Architecture"],
-      ["internals/caching", "Caching"]
+    ["Getting started", [
+      ["index", "Home"],
+      ["installation", "Installation"],
+      ["quickstart", "Quickstart"],
+      ["config.json", "Configuration"],
+      ["showcase", "Showcase"]
     ]]
   ],
   "build": {
-    "workers": 6,
+    "workers": 1,
     "minify_html": true,
     "optimize_html": true,
     "zstd_level": 22,
     "search_index_filename": "search_index.zst",
-    "git_meta_filename": "git_meta.json"
+    "git_meta_filename": "git_meta.zst"
+  },
+  "source_files": {
+    "search_dirs": ["parent", "src_parent", "docs"],
+    "patterns": [
+      "docs/src/*.md",
+      "docs/*.js",
+      "docs/*.css"
+    ],
+    "ignore_dirs": []
   },
   "versioning": {
     "commit_message_pattern": "^\\s*([0-9]+[A-Za-z])\\s*[-:—–]\\s*(.+)",
     "live_label": "Live"
+  },
+  "features": {
+    "backlinks": true,
+    "related": true,
+    "auto_link": true,
+    "versioning": true,
+    "search": {
+      "enabled": true,
+      "include": {
+        "pages": true,
+        "titles": true,
+        "headings": true,
+        "content": true,
+        "symbols": true,
+        "files": true
+      }
+    },
+    "code_references": true,
+    "link_preview": true,
+    "code_highlighting": true,
+    "blockquotes": true,
+    "ext_tags": true,
+    "inline_copy": true
   }
 }
