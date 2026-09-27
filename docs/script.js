@@ -574,7 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Click handler for search results (handles both regular links and coderef links)
-  searchResults.addEventListener('click', (e) => {
+  searchResults.addEventListener('click', async (e) => {
     const link = e.target.closest('.search-hit');
     if (!link) return;
 
@@ -587,6 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const line = parseInt(match[2], 10);
         const refs = parseCodeRefs();
         const ref = refs.find(r => r.file === file && r.line === line);
+        // Ensure source files are loaded before showing panel
+        await loadSourceFiles();
         if (ref) {
           showCodePanel(ref);
         } else {
@@ -1118,9 +1120,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const lines = content.split(/\r?\n/);
     const escapedName = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const patterns = [
-      new RegExp(`^\\s*(?:async\\s+)?def\\s+${escapedName}\\s*\\(`),
-      new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escapedName}\\s*\\(`),
-      new RegExp(`^\\s*(?:export\\s+)?(?:const|let|var)\\s+${escapedName}\\s*=`)
+      new RegExp(`^[^\S\n]*(?:async\\s+)?def\\s+${escapedName}\\s*\\(`),
+      new RegExp(`^[^\S\n]*(?:export\\s+)?(?:async\\s+)?function\\s+${escapedName}\\s*\\(`),
+      new RegExp(`^[^\S\n]*(?:export\\s+)?(?:const|let|var)\\s+${escapedName}\\s*=`)
     ];
     let definition = -1;
     for (let i = 0; i < lines.length; i++) {
@@ -1132,13 +1134,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (definition < 0) return null;
 
     let start = definition;
-    while (start > 0 && /^\s*@/.test(lines[start - 1])) start--;
+    while (start > 0 && /^[^\S\n]*@/.test(lines[start - 1])) start--;
     let end = lines.length - 1;
-    if (/^\s*(?:async\s+)?def\s/.test(lines[definition])) {
-      const indent = (lines[definition].match(/^\s*/) || [''])[0].length;
+    if (/^[^\S\n]*(?:async\s+)?def\s/.test(lines[definition])) {
+      const indent = (lines[definition].match(/^[^\S\n]*/) || [''])[0].length;
       end = definition;
       for (let i = definition + 1; i < lines.length; i++) {
-        if (lines[i].trim() && (lines[i].match(/^\s*/) || [''])[0].length <= indent) {
+        if (lines[i].trim() && (lines[i].match(/^[^\S\n]*/) || [''])[0].length <= indent) {
           end = i - 1;
           break;
         }
@@ -1372,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let previewTooltip = null;
   let previewHideTimeout = null;
 
-  function createPreviewTooltip(isCode) {
+  function createPreviewTooltip() {
     if (previewTooltip) return previewTooltip;
     previewTooltip = document.createElement('div');
     previewTooltip.className = 'link-preview-tooltip';
@@ -1539,8 +1541,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const isSearchCodeRef = href.startsWith('#coderef:');
 
       let hoverTimeout = null;
+      let lastMouseX = 0;
+      let lastMouseY = 0;
+
+      link.addEventListener('mousemove', (e) => {
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        if (previewTooltip && previewTooltip.style.opacity === '1') {
+          previewTooltip.style.left = `${e.clientX + 15}px`;
+          previewTooltip.style.top = `${e.clientY + 15}px`;
+        }
+      });
 
       link.addEventListener('mouseenter', async (e) => {
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
         hoverTimeout = setTimeout(async () => {
           if (isCodeRef) {
             const refId = link.dataset.coderefId;
@@ -1563,7 +1578,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   </div>
                   <div class="preview-code">${preview.highlightedLines}</div>
                 `;
-                showPreviewTooltip(e.clientX, e.clientY, content, isCode = true);
+                showPreviewTooltip(lastMouseX, lastMouseY, content, isCode = true);
               }
             }
           } else if (isSearchCodeRef) {
@@ -1582,7 +1597,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   </div>
                   <div class="preview-code">${preview.highlightedLines}</div>
                 `;
-                showPreviewTooltip(e.clientX, e.clientY, content, isCode = true);
+                showPreviewTooltip(lastMouseX, lastMouseY, content, isCode = true);
               }
             }
           } else if (!href.startsWith('#')) {
@@ -1593,22 +1608,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="preview-header">${preview.title || ''}</div>
                 <div class="preview-description">${preview.description || ''}</div>
               `;
-              showPreviewTooltip(e.clientX, e.clientY, content, isCode = false);
+              showPreviewTooltip(lastMouseX, lastMouseY, content, isCode = false);
             }
           }
         }, 300); // 300ms delay before showing preview
-      });
-
-      link.addEventListener('mouseleave', () => {
-        if (hoverTimeout) clearTimeout(hoverTimeout);
-        hidePreviewTooltip();
-      });
-
-      link.addEventListener('mousemove', (e) => {
-        if (previewTooltip && previewTooltip.style.opacity === '1') {
-          previewTooltip.style.left = `${e.clientX + 15}px`;
-          previewTooltip.style.top = `${e.clientY + 15}px`;
-        }
       });
     });
   }
